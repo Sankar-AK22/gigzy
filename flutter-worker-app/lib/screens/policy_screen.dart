@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../services/firestore_service.dart';
+import '../models/worker_model.dart';
 
 class PolicyScreen extends StatelessWidget {
   const PolicyScreen({super.key});
@@ -17,11 +19,20 @@ class PolicyScreen extends StatelessWidget {
     
     // Simulating waiting period status for demo purposes based on new Terms & Conditions
     final bool isWaitingPeriod = true;
+    final FirestoreService _firestoreService = FirestoreService();
 
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(colors: bgColors, begin: Alignment.topCenter, end: Alignment.bottomCenter),
-      ),
+    return StreamBuilder<List<WorkerModel>>(
+      stream: _firestoreService.getWorkersStream(),
+      builder: (context, snapshot) {
+        bool hasActivePolicy = false;
+        if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+          hasActivePolicy = snapshot.data!.first.hasActivePolicy;
+        }
+
+        return Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(colors: bgColors, begin: Alignment.topCenter, end: Alignment.bottomCenter),
+          ),
       child: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
@@ -108,30 +119,53 @@ class PolicyScreen extends StatelessWidget {
               ),
               const SizedBox(height: 24),
 
-              // Active Policy Card (gradient — always looks good)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(gradient: AppTheme.primaryGradient, borderRadius: BorderRadius.circular(20)),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                      Text('Active Policy', style: TextStyle(color: Colors.white70, fontSize: 14)),
-                      Icon(Icons.verified_rounded, color: Colors.white, size: 24),
-                    ]),
-                    const SizedBox(height: 16),
-                    const Text('Weekly Income Protection', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 20),
-                    _policyDetail('Policy ID', 'GS-POL-2026-0311'),
-                    _policyDetail('Start Date', '03 Mar 2026'),
-                    _policyDetail('End Date', '10 Mar 2026'),
-                    _policyDetail('Premium Paid', '₹35'),
-                    _policyDetail('Coverage Limit', '₹1,200'),
-                    _policyDetail('Status', 'Active ✅'),
-                  ],
+              // Policy Card (Conditional on hasActivePolicy)
+              if (hasActivePolicy)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(gradient: AppTheme.primaryGradient, borderRadius: BorderRadius.circular(20)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                        Text('Active Policy', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                        Icon(Icons.verified_rounded, color: Colors.white, size: 24),
+                      ]),
+                      const SizedBox(height: 16),
+                      const Text('Weekly Income Protection', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 20),
+                      _policyDetail('Policy ID', 'GS-POL-2026-0311'),
+                      _policyDetail('Start Date', '03 Mar 2026'),
+                      _policyDetail('End Date', '10 Mar 2026'),
+                      _policyDetail('Premium Paid', '₹35'),
+                      _policyDetail('Coverage Limit', '₹1,200'),
+                      _policyDetail('Status', 'Active ✅'),
+                    ],
+                  ),
+                )
+              else
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: cardColor,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppTheme.warningColor.withAlpha(77)),
+                  ),
+                  child: Column(
+                    children: [
+                      const Icon(Icons.pending_actions_rounded, color: AppTheme.warningColor, size: 48),
+                      const SizedBox(height: 16),
+                      Text('No Active Policy', style: TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                      Text('Your policy is currently pending assignment from the admin dashboard.', 
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: subtitleColor, fontSize: 14)
+                      ),
+                    ],
+                  ),
                 ),
-              ),
               const SizedBox(height: 24),
 
               // What's Covered
@@ -181,7 +215,8 @@ class PolicyScreen extends StatelessWidget {
         ),
       ),
     );
-  }
+  });
+}
 
   Widget _riskMetric(String label, String value, Color color) {
     return Column(children: [
