@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+.gradle/
+target/
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Environment
+.env
+*.env.local
+
+# Build outputs
+build/
+dist/
+*.jar
+*.apk
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Flutter
+flutter-worker-app/.dart_tool/
+flutter-worker-app/.packages
+flutter-worker-app/build/

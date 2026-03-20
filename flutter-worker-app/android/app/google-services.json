@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "523779007893",
+    "project_id": "gigzy-639da",
+    "storage_bucket": "gigzy-639da.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:523779007893:android:63981ff837946313d1429c",
+        "android_client_info": {
+          "package_name": "com.gigshield.gigshield_worker"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC_277LaKTch0PfAQNnmz7jysWORVVQlMw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

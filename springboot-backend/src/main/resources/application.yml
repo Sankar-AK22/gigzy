@@ -1,0 +1,57 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: gigshield-backend
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/gigshield
+    username: gigshield_user
+    password: gigshield_pass_2026
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    default-property-inclusion: non_null
+
+# External Service Configuration
+gigshield:
+  ai-service:
+    url: ${AI_SERVICE_URL:http://localhost:8000}
+
+  weather:
+    api-key: ${OPENWEATHERMAP_API_KEY:demo_key}
+    base-url: https://api.openweathermap.org/data/2.5
+
+  razorpay:
+    key-id: ${RAZORPAY_KEY_ID:rzp_test_demo}
+    key-secret: ${RAZORPAY_KEY_SECRET:demo_secret}
+
+  firebase:
+    project-id: ${FIREBASE_PROJECT_ID:gigshield-demo}
+
+  # Parametric trigger thresholds
+  triggers:
+    rainfall-mm: 60.0
+    temperature-celsius: 42.0
+    aqi-threshold: 350
+    flood-alert: true
+    curfew-check: true
+
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
