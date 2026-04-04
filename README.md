@@ -114,15 +114,24 @@ See [docs/ENV_SETUP.md](docs/ENV_SETUP.md) for complete environment variable ref
 
 See [docs/API.md](docs/API.md) for full REST API documentation.
 
+## 🛠️ Technology Stack
+
+- **Frontend App:** Flutter, Provider, Dynamic Theming, Local Auth (Biometrics)
+- **Web Dashboard:** React.js, Tailwind CSS
+- **Backend Services:** Spring Boot, Java 17, PostgreSQL
+- **AI & Risk Engine:** Python FastAPI, LLaMA 3.3 (via Groq API), OpenWeatherMap
+- **Cloud Infrastructure:** Firebase (Authentication, Real-Time Firestore Streams)
+
 ## 💡 Core Features
 
-- **Worker Registration** — Phone auth via Firebase, profile with city/platform/zone
-- **AI Risk Assessment** — ML-based risk scoring + dynamic weekly premium
-- **Parametric Triggers** — Auto-detect rain > 60mm, temp > 42°C, AQI > 350
-- **Automated Claims** — Zero paperwork, system auto-creates claims
-- **Fraud Detection** — GPS spoofing, zone mismatch, duplicate claim detection
-- **Instant Payouts** — Razorpay sandbox simulation
-- **Admin Analytics** — Risk heatmaps, claim charts, fraud alerts
+- **Biometric Security** — Passwordless login via face/fingerprint scans using `local_auth`.
+- **Fully Reactive Real-Time Sync** — Worker telemetry and UI states synchronize instantly across the app and Web Dashboard via Firestore Streams.
+- **AI Chatbot Assistant** — Embedded AI helper using Groq (LLaMA 3.3-70b-versatile) with graceful Demo Mode fallbacks.
+- **Parametric Triggers** — System auto-detects rain > 60mm, temp > 42°C, or AQI > 350 using the `ai-risk-service`.
+- **Automated No-Touch Claims** — Zero paperwork; policies automatically shift state when environmental conditions cross thresholds.
+- **AI Risk Assessment** — Workers receive dynamic risk profiling (Low, Medium, High) based strictly on historical weather data in their city/zone.
+- **Instant Payouts** — Razorpay Sandbox integrated for seamless gig worker disbursements.
+- **Admin Analytics** — React dashboard for managers to monitor live claims and edit policies.
 
 ## 📄 License
 
