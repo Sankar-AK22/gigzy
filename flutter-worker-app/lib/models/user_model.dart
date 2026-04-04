@@ -12,6 +12,7 @@ class UserModel {
   final double? longitude;
   final double riskScore;
   final bool isActive;
+  final double preferredCoverage;
 
   UserModel({
     required this.id,
@@ -27,6 +28,7 @@ class UserModel {
     this.longitude,
     this.riskScore = 0.0,
     this.isActive = true,
+    this.preferredCoverage = 1200.0,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -44,6 +46,7 @@ class UserModel {
       longitude: json['longitude']?.toDouble(),
       riskScore: (json['riskScore'] ?? 0).toDouble(),
       isActive: json['isActive'] ?? true,
+      preferredCoverage: (json['preferredCoverage'] ?? 1200).toDouble(),
     );
   }
 
@@ -59,6 +62,7 @@ class UserModel {
       'zone': zone,
       'latitude': latitude,
       'longitude': longitude,
+      'preferredCoverage': preferredCoverage,
     };
   }
 }

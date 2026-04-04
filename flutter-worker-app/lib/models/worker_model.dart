@@ -14,6 +14,7 @@ class WorkerModel {
   final String vehicleType;
   final double preferredCoverage;
   final bool hasActivePolicy;
+  final double riskScore;
   final DateTime registeredAt;
 
   WorkerModel({
@@ -30,6 +31,7 @@ class WorkerModel {
     required this.vehicleType,
     required this.preferredCoverage,
     this.hasActivePolicy = false,
+    this.riskScore = 0.65,
     DateTime? registeredAt,
   }) : registeredAt = registeredAt ?? DateTime.now();
 
@@ -58,6 +60,7 @@ class WorkerModel {
       vehicleType: data['vehicleType'] ?? '',
       preferredCoverage: (data['preferredCoverage'] ?? 0).toDouble(),
       hasActivePolicy: data['hasActivePolicy'] ?? false,
+      riskScore: (data['riskScore'] ?? 0.65).toDouble(),
       registeredAt: parsedDate,
     );
   }
@@ -76,6 +79,7 @@ class WorkerModel {
       'vehicleType': vehicleType,
       'preferredCoverage': preferredCoverage,
       'hasActivePolicy': hasActivePolicy,
+      'riskScore': riskScore,
       'registeredAt': FieldValue.serverTimestamp(),
     };
   }

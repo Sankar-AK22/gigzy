@@ -4,6 +4,7 @@ import '../theme/app_theme.dart';
 import '../providers/app_provider.dart';
 import '../services/firestore_service.dart';
 import 'login_screen.dart';
+import 'edit_profile_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -186,6 +187,16 @@ class SettingsScreen extends StatelessWidget {
                         _settingsCard(
                           cardColor: cardColor,
                           children: [
+                            _actionTile(
+                              icon: Icons.person_outline,
+                              iconColor: AppTheme.primaryColor,
+                              title: 'Edit Profile',
+                              subtitle: 'Update your personal details',
+                              textColor: textColor,
+                              subtitleColor: subtitleColor,
+                              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EditProfileScreen())),
+                            ),
+                            _divider(isDark),
                             _actionTile(
                               icon: Icons.logout_rounded,
                               iconColor: AppTheme.accentColor,

@@ -80,9 +80,20 @@ Keep responses concise, friendly, and in simple language. Use emojis occasionall
           _messages.add({'role': 'assistant', 'content': reply});
           _isLoading = false;
         });
+      } else if (response.statusCode == 401 || response.statusCode == 403) {
+        // Fallback for Hackathon Demo if the API key expires
+        Future.delayed(const Duration(seconds: 1), () {
+          setState(() {
+            _messages.add({
+              'role': 'assistant', 
+              'content': 'I am currently in Demo Mode! 🚀\n\n**About GigShield:**\nGigShield is an AI-powered Parametric Insurance Platform built for gig workers. We use real-time weather data and AI risk assessment to automatically trigger and process insurance claims during extreme weather (like severe heatwaves or floods) — before you even have to ask!\n\nOur mission is to provide an instant financial safety net for the gig economy, ensuring you protect your income from out-of-control disruptions.'
+            });
+            _isLoading = false;
+          });
+        });
       } else {
         setState(() {
-          _messages.add({'role': 'assistant', 'content': '⚠️ Sorry, I couldn\'t process that. Please try again.'});
+          _messages.add({'role': 'assistant', 'content': '⚠️ Sorry, I couldn\'t process that (Error ${response.statusCode}). Please try again.'});
           _isLoading = false;
         });
       }

@@ -4,6 +4,7 @@ import '../theme/app_theme.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
 import '../providers/app_provider.dart';
+import 'package:local_auth/local_auth.dart';
 import 'onboarding_screen.dart';
 import 'home_screen.dart';
 
@@ -20,6 +21,71 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _otpSent = false;
   bool _isLoading = false;
   String? _verificationId;
+  final LocalAuthentication _localAuth = LocalAuthentication();
+
+  @override
+  void initState() {
+    super.initState();
+    _checkBiometric();
+  }
+
+  Future<void> _checkBiometric() async {
+    // Optional initially check if biometrics are enrolled, could be used for UI hints
+  }
+
+  Future<void> _biometricLogin() async {
+    setState(() => _isLoading = true);
+    try {
+      final bool canAuthenticateWithBiometrics = await _localAuth.canCheckBiometrics;
+      final bool canAuthenticate = canAuthenticateWithBiometrics || await _localAuth.isDeviceSupported();
+
+      if (!canAuthenticate) {
+        throw Exception('Biometric authentication is not available on this device.');
+      }
+
+      final bool didAuthenticate = await _localAuth.authenticate(
+        localizedReason: 'Scan your face or fingerprint to log in to GigShield',
+      );
+
+      if (didAuthenticate) {
+        // Log them in natively (Mocking Firebase UUID for demo)
+        await _authSuccess('firebase_uid_001'); // In real app, store securely
+      } else {
+        setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Authentication failed: $e')));
+      }
+    }
+  }
+
+  Future<void> _authSuccess(String firebaseUid) async {
+    final apiService = context.read<ApiService>();
+    final appProvider = context.read<AppProvider>();
+    final existingUser = await apiService.getUserByFirebaseUid(firebaseUid);
+
+    if (mounted) {
+      if (existingUser != null) {
+        appProvider.setCurrentUser(existingUser);
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+        );
+      } else {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => OnboardingScreen(
+              firebaseUid: firebaseUid,
+              phone: '+91${_phoneController.text}',
+            ),
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -33,12 +99,12 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
         child: SafeArea(
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.all(24.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Spacer(flex: 1),
+                const SizedBox(height: 40),
                 // Header
                 Container(
                   width: 64,
@@ -153,7 +219,34 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
 
-                const Spacer(flex: 2),
+                const SizedBox(height: 16),
+
+                // Face / Biometric Scan Button
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton(
+                    onPressed: _isLoading ? null : _biometricLogin,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white10,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      elevation: 0,
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.face_retouching_natural, color: Colors.white, size: 24),
+                        SizedBox(width: 12),
+                        Text(
+                          'Face Login / Biometric',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 40),
               ],
             ),
           ),
@@ -201,28 +294,7 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       // Check if user exists
-      final existingUser = await apiService.getUserByFirebaseUid(firebaseUid);
-
-      if (mounted) {
-        if (existingUser != null) {
-          appProvider.setCurrentUser(existingUser);
-          authService.setUserId(existingUser.id);
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const HomeScreen()),
-          );
-        } else {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (_) => OnboardingScreen(
-                firebaseUid: firebaseUid,
-                phone: '+91${_phoneController.text}',
-              ),
-            ),
-          );
-        }
-      }
+      await _authSuccess(firebaseUid);
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {

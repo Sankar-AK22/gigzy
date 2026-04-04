@@ -22,9 +22,9 @@ class HomeScreen extends StatelessWidget {
         return Scaffold(
           body: IndexedStack(
             index: provider.currentNavIndex,
-            children: const [
-              _DashboardTab(),
-              PolicyScreen(),
+            children: [
+              const _DashboardTab(),
+              const PolicyScreen(),
               ClaimsScreen(),
               PayoutsScreen(),
             ],
@@ -73,6 +73,8 @@ class _DashboardTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final provider = context.watch<AppProvider>();
+    final user = provider.currentUser;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDark ? Colors.white : const Color(0xFF1A1A2E);
     final subtitleColor = isDark ? Colors.white60 : Colors.grey.shade600;
@@ -100,7 +102,7 @@ class _DashboardTab extends StatelessWidget {
                     children: [
                       Text('Good Morning 👋', style: TextStyle(color: subtitleColor, fontSize: 14)),
                       const SizedBox(height: 4),
-                      Text('Rahul Kumar', style: TextStyle(color: textColor, fontSize: 24, fontWeight: FontWeight.bold)),
+                      Text(user?.name ?? 'Worker', style: TextStyle(color: textColor, fontSize: 24, fontWeight: FontWeight.bold)),
                     ],
                   ),
                   Row(
@@ -152,13 +154,13 @@ class _DashboardTab extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    const Text('₹1,200', style: TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold)),
+                    Text('₹${(user?.preferredCoverage ?? 1200).toStringAsFixed(0)}', style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold)),
                     const Text('Coverage Limit', style: TextStyle(color: Colors.white60, fontSize: 12)),
                     const SizedBox(height: 16),
                     Row(children: [
                       _infoChip('Premium', '₹35/week'),
                       const SizedBox(width: 12),
-                      _infoChip('Risk Score', '0.65'),
+                      _infoChip('Risk Score', '${user?.riskScore ?? 0.65}'),
                       const SizedBox(width: 12),
                       _infoChip('Expires', '5 days'),
                     ]),
@@ -169,32 +171,42 @@ class _DashboardTab extends StatelessWidget {
 
               // Quick Stats
               Row(children: [
-                Expanded(child: _statCard('Total Payouts', '₹1,056', Icons.arrow_downward, AppTheme.secondaryColor, cardColor, textColor, subtitleColor)),
+                Expanded(child: _statCard('Total Payouts', '₹${provider.totalPayouts.toStringAsFixed(0)}', Icons.arrow_downward, AppTheme.secondaryColor, cardColor, textColor, subtitleColor)),
                 const SizedBox(width: 12),
-                Expanded(child: _statCard('Claims', '3', Icons.receipt_long, AppTheme.warningColor, cardColor, textColor, subtitleColor)),
+                Expanded(child: _statCard('Claims', '${provider.claims.length}', Icons.receipt_long, AppTheme.warningColor, cardColor, textColor, subtitleColor)),
               ]),
               const SizedBox(height: 12),
               Row(children: [
-                Expanded(child: _statCard('Weeks Insured', '8', Icons.calendar_month, AppTheme.primaryColor, cardColor, textColor, subtitleColor)),
+                Expanded(child: _statCard('Avg Income', '₹${user?.avgDailyIncome ?? 800}', Icons.payments, AppTheme.primaryColor, cardColor, textColor, subtitleColor)),
                 const SizedBox(width: 12),
-                Expanded(child: _statCard('Risk Level', 'Medium', Icons.speed, Colors.orange, cardColor, textColor, subtitleColor)),
+                Expanded(child: _statCard('Risk Level', (user?.riskScore ?? 0.65) > 0.75 ? 'High' : (user?.riskScore ?? 0.65) > 0.4 ? 'Medium' : 'Low', Icons.speed, (user?.riskScore ?? 0.65) > 0.75 ? AppTheme.accentColor : Colors.orange, cardColor, textColor, subtitleColor)),
               ]),
               const SizedBox(height: 24),
 
               // Active Alerts
               Text('Active Alerts', style: TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.w600)),
               const SizedBox(height: 12),
-              _alertCard('🌡️', 'Heatwave Advisory', 'Delhi — Temperature: 44.5°C', 'critical', textColor),
+              _alertCard('🌡️', 'Heatwave Advisory', '${user?.city ?? 'Delhi'} — Temperature: 44.5°C', 'critical', textColor),
               const SizedBox(height: 8),
-              _alertCard('😷', 'Air Quality Warning', 'Hyderabad — AQI: 380', 'high', textColor),
+              _alertCard('😷', 'Air Quality Warning', '${user?.zone ?? 'Hyderabad'} — AQI: 380', 'high', textColor),
               const SizedBox(height: 24),
 
               // Recent Claims
               Text('Recent Claims', style: TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.w600)),
               const SizedBox(height: 12),
-              _claimCard('🌧️', 'Heavy Rainfall', '₹400', 'Paid', Colors.green, cardColor, textColor, subtitleColor),
-              const SizedBox(height: 8),
-              _claimCard('🌊', 'Flood Alert', '₹656', 'Paid', Colors.green, cardColor, textColor, subtitleColor),
+              if (provider.claims.isEmpty)
+                Text('No recent claims', style: TextStyle(color: subtitleColor, fontSize: 14))
+              else
+                ...provider.claims.take(2).map((c) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: _claimCard(
+                      '🌧️',
+                      c.disruptionType,
+                      '₹${c.payoutAmount}',
+                      c.claimStatus,
+                      c.claimStatus.toLowerCase() == 'paid' ? Colors.green : AppTheme.warningColor,
+                      cardColor, textColor, subtitleColor),
+                )),
             ],
           ),
         ),

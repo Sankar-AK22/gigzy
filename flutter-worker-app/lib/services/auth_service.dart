@@ -1,5 +1,7 @@
 /// Firebase Authentication Service
 /// Handles phone number authentication for gig workers.
+import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class AuthService {
   String? _currentUserId;
@@ -11,35 +13,33 @@ class AuthService {
   String? get currentFirebaseUid => _currentFirebaseUid;
 
   /// Send OTP to phone number
-  /// In production, use Firebase Auth verifyPhoneNumber
   Future<String> sendOtp(String phoneNumber) async {
-    // Firebase Phone Auth would go here:
-    // await FirebaseAuth.instance.verifyPhoneNumber(
-    //   phoneNumber: phoneNumber,
-    //   verificationCompleted: (credential) {},
-    //   verificationFailed: (e) {},
-    //   codeSent: (verificationId, resendToken) {},
-    //   codeAutoRetrievalTimeout: (verificationId) {},
-    // );
+    Completer<String> completer = Completer<String>();
+    
+    await FirebaseAuth.instance.verifyPhoneNumber(
+      phoneNumber: phoneNumber,
+      verificationCompleted: (PhoneAuthCredential credential) {},
+      verificationFailed: (FirebaseAuthException e) {
+        if (!completer.isCompleted) completer.completeError(e);
+      },
+      codeSent: (String verificationId, int? resendToken) {
+        if (!completer.isCompleted) completer.complete(verificationId);
+      },
+      codeAutoRetrievalTimeout: (String verificationId) {},
+    );
 
-    // For hackathon demo, simulate OTP
-    await Future.delayed(const Duration(seconds: 2));
-    return 'demo_verification_id';
+    return completer.future;
   }
 
   /// Verify OTP and sign in
   Future<String> verifyOtp(String verificationId, String otp) async {
-    // Firebase Phone Auth would verify here:
-    // PhoneAuthCredential credential = PhoneAuthProvider.credential(
-    //   verificationId: verificationId,
-    //   smsCode: otp,
-    // );
-    // UserCredential result = await FirebaseAuth.instance.signInWithCredential(credential);
-    // return result.user!.uid;
-
-    // For hackathon demo
-    await Future.delayed(const Duration(seconds: 1));
-    _currentFirebaseUid = 'firebase_uid_demo_${DateTime.now().millisecondsSinceEpoch}';
+    PhoneAuthCredential credential = PhoneAuthProvider.credential(
+      verificationId: verificationId,
+      smsCode: otp,
+    );
+    UserCredential result = await FirebaseAuth.instance.signInWithCredential(credential);
+    
+    _currentFirebaseUid = result.user?.uid;
     _isAuthenticated = true;
     return _currentFirebaseUid!;
   }
@@ -60,7 +60,7 @@ class AuthService {
 
   /// Sign out
   Future<void> signOut() async {
-    // await FirebaseAuth.instance.signOut();
+    await FirebaseAuth.instance.signOut();
     _currentUserId = null;
     _currentFirebaseUid = null;
     _isAuthenticated = false;

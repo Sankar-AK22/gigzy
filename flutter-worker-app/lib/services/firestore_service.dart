@@ -31,6 +31,16 @@ class FirestoreService {
     return null;
   }
 
+  /// Real-time stream for a single worker
+  Stream<WorkerModel?> getWorkerStream(String id) {
+    return _db.collection('workers').doc(id).snapshots().map((doc) {
+      if (doc.exists) {
+        return WorkerModel.fromFirestore(doc);
+      }
+      return null;
+    });
+  }
+
   /// Update a worker document
   Future<void> updateWorker(String id, Map<String, dynamic> data) {
     return _db.collection('workers').doc(id).update(data);
@@ -46,6 +56,17 @@ class FirestoreService {
   Stream<List<Map<String, dynamic>>> getClaimsStream() {
     return _db
         .collection('claims')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => {'id': doc.id, ...doc.data()})
+            .toList());
+  }
+
+  Stream<List<Map<String, dynamic>>> getUserClaimsStream(String userId) {
+    return _db
+        .collection('claims')
+        .where('userId', isEqualTo: userId)
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snapshot) => snapshot.docs

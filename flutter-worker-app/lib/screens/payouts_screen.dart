@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/app_provider.dart';
 import '../theme/app_theme.dart';
 
 class PayoutsScreen extends StatelessWidget {
@@ -14,12 +16,8 @@ class PayoutsScreen extends StatelessWidget {
         ? const [Color(0xFF0A0E21), Color(0xFF1A1A2E)]
         : const [Color(0xFFF5F6FA), Color(0xFFEEEFF5)];
 
-    final txns = [
-      {'type': 'claim_payout', 'desc': 'Rainfall Claim', 'amount': '+₹400', 'date': '07 Mar', 'status': 'completed'},
-      {'type': 'premium_payment', 'desc': 'Weekly Premium', 'amount': '-₹35', 'date': '03 Mar', 'status': 'completed'},
-      {'type': 'claim_payout', 'desc': 'Flood Claim', 'amount': '+₹656', 'date': '07 Mar', 'status': 'completed'},
-      {'type': 'premium_payment', 'desc': 'Weekly Premium', 'amount': '-₹22', 'date': '24 Feb', 'status': 'completed'},
-    ];
+    final provider = context.watch<AppProvider>();
+    final paidClaims = provider.claims.where((c) => c.claimStatus.toLowerCase() == 'paid').toList();
 
     return Container(
       decoration: BoxDecoration(
@@ -36,18 +34,29 @@ class PayoutsScreen extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(gradient: AppTheme.primaryGradient, borderRadius: BorderRadius.circular(20)),
-              child: const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('Total Received', style: TextStyle(color: Colors.white70, fontSize: 14)),
-                SizedBox(height: 8),
-                Text('₹1,056', style: TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold)),
-                SizedBox(height: 4),
-                Text('Via Razorpay Wallet', style: TextStyle(color: Colors.white60, fontSize: 12)),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Total Received', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                const SizedBox(height: 8),
+                Text('₹${provider.totalPayouts.toStringAsFixed(0)}', style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                const Text('Via Razorpay Wallet', style: TextStyle(color: Colors.white60, fontSize: 12)),
               ]),
             ),
             const SizedBox(height: 24),
             Text('Transaction History', style: TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.w600)),
             const SizedBox(height: 12),
-            ...txns.map((t) => _txnCard(t, cardColor, textColor, subtitleColor)),
+            if (paidClaims.isEmpty)
+              Text('No payouts yet', style: TextStyle(color: subtitleColor, fontSize: 14))
+            else
+              ...paidClaims.map((c) => _txnCard(
+                {
+                  'type': 'claim_payout', 
+                  'desc': '${c.disruptionType} Claim', 
+                  'amount': '+₹${c.payoutAmount}', 
+                  'date': 'Recent', 
+                  'status': 'completed'
+                }, 
+                cardColor, textColor, subtitleColor)),
           ],
         ),
       ),

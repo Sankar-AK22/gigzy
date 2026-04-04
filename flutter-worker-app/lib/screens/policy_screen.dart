@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import 'package:provider/provider.dart';
+import '../providers/app_provider.dart';
+import '../theme/app_theme.dart';
 import '../services/firestore_service.dart';
-import '../models/worker_model.dart';
 
 class PolicyScreen extends StatelessWidget {
   const PolicyScreen({super.key});
@@ -17,17 +19,11 @@ class PolicyScreen extends StatelessWidget {
         ? const [Color(0xFF0A0E21), Color(0xFF1A1A2E)]
         : const [Color(0xFFF5F6FA), Color(0xFFEEEFF5)];
     
-    // Simulating waiting period status for demo purposes based on new Terms & Conditions
-    final bool isWaitingPeriod = true;
-    final FirestoreService _firestoreService = FirestoreService();
-
-    return StreamBuilder<List<WorkerModel>>(
-      stream: _firestoreService.getWorkersStream(),
-      builder: (context, snapshot) {
-        bool hasActivePolicy = false;
-        if (snapshot.hasData && snapshot.data!.isNotEmpty) {
-          hasActivePolicy = snapshot.data!.first.hasActivePolicy;
-        }
+    final provider = context.watch<AppProvider>();
+    final user = provider.currentUser;
+    final bool isWaitingPeriod = false; // Based on active policy
+    
+    bool hasActivePolicy = user?.isActive ?? false;
 
         return Container(
           decoration: BoxDecoration(
@@ -91,19 +87,19 @@ class PolicyScreen extends StatelessWidget {
                       const Spacer(),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(color: AppTheme.warningColor.withAlpha(51), borderRadius: BorderRadius.circular(8)),
-                        child: const Text('MEDIUM', style: TextStyle(color: AppTheme.warningColor, fontSize: 11, fontWeight: FontWeight.w600)),
+                        decoration: BoxDecoration(color: ((user?.riskScore ?? 0.65) > 0.75 ? AppTheme.accentColor : ((user?.riskScore ?? 0.65) > 0.4 ? AppTheme.warningColor : Colors.green)).withAlpha(51), borderRadius: BorderRadius.circular(8)),
+                        child: Text((user?.riskScore ?? 0.65) > 0.75 ? 'HIGH' : (user?.riskScore ?? 0.65) > 0.4 ? 'MEDIUM' : 'LOW', style: TextStyle(color: (user?.riskScore ?? 0.65) > 0.75 ? AppTheme.accentColor : ((user?.riskScore ?? 0.65) > 0.4 ? AppTheme.warningColor : Colors.green), fontSize: 11, fontWeight: FontWeight.w600)),
                       ),
                     ]),
                     const SizedBox(height: 20),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
-                        _riskMetric('Risk Score', '0.65', AppTheme.warningColor),
+                        _riskMetric('Risk Score', '${user?.riskScore ?? 0.65}', AppTheme.warningColor),
                         Container(width: 1, height: 40, color: dividerColor),
                         _riskMetric('Premium', '₹35/wk', AppTheme.primaryColor),
                         Container(width: 1, height: 40, color: dividerColor),
-                        _riskMetric('Coverage', '₹1,200', AppTheme.secondaryColor),
+                        _riskMetric('Coverage', '₹${(user?.preferredCoverage ?? 1200).toStringAsFixed(0)}', AppTheme.secondaryColor),
                       ],
                     ),
                     const SizedBox(height: 16),
@@ -111,9 +107,9 @@ class PolicyScreen extends StatelessWidget {
                     const SizedBox(height: 12),
                     Text('Risk Factors', style: TextStyle(color: subtitleColor, fontSize: 13)),
                     const SizedBox(height: 8),
-                    _riskFactor('🌧️', 'Monsoon season — high rainfall risk in Mumbai', subtitleColor),
-                    _riskFactor('🌡️', 'Historical heatwave frequency: 4 events', subtitleColor),
-                    _riskFactor('📍', 'High-risk city factor: 0.80', subtitleColor),
+                    _riskFactor('🌧️', 'Monsoon season — high rainfall risk in ${user?.city ?? 'your city'}', subtitleColor),
+                    _riskFactor('🌡️', 'Historical heatwave frequency: 4 events in ${user?.zone ?? 'your area'}', subtitleColor),
+                    _riskFactor('📍', 'High-risk city factor: ${(user?.riskScore ?? 0.80).toStringAsFixed(2)}', subtitleColor),
                   ],
                 ),
               ),
@@ -135,11 +131,11 @@ class PolicyScreen extends StatelessWidget {
                       const SizedBox(height: 16),
                       const Text('Weekly Income Protection', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 20),
-                      _policyDetail('Policy ID', 'GS-POL-2026-0311'),
-                      _policyDetail('Start Date', '03 Mar 2026'),
-                      _policyDetail('End Date', '10 Mar 2026'),
+                      _policyDetail('Policy ID', 'GS-POL-${(user?.id ?? "2026").padRight(4, 'X').substring(0, 4)}'),
+                      _policyDetail('Start Date', 'Recent'),
+                      _policyDetail('End Date', 'Active'),
                       _policyDetail('Premium Paid', '₹35'),
-                      _policyDetail('Coverage Limit', '₹1,200'),
+                      _policyDetail('Coverage Limit', '₹${(user?.preferredCoverage ?? 1200).toStringAsFixed(0)}'),
                       _policyDetail('Status', 'Active ✅'),
                     ],
                   ),
@@ -215,8 +211,7 @@ class PolicyScreen extends StatelessWidget {
         ),
       ),
     );
-  });
-}
+  }
 
   Widget _riskMetric(String label, String value, Color color) {
     return Column(children: [

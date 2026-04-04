@@ -3,7 +3,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
 import '../models/policy_model.dart';
 import '../models/claim_model.dart';
-
+import 'dart:async';
+import '../services/firestore_service.dart';
+import '../models/worker_model.dart';
 class AppProvider extends ChangeNotifier {
   UserModel? _currentUser;
   List<PolicyModel> _policies = [];
@@ -13,6 +15,8 @@ class AppProvider extends ChangeNotifier {
   bool _isLoading = false;
   int _currentNavIndex = 0;
 
+  StreamSubscription<WorkerModel?>? _workerSub;
+  StreamSubscription<List<Map<String, dynamic>>>? _claimsSub;
   // ── Settings State ──
   ThemeMode _themeMode = ThemeMode.dark;
   bool _notificationsEnabled = true;
@@ -112,6 +116,44 @@ class AppProvider extends ChangeNotifier {
   void setCurrentUser(UserModel user) {
     _currentUser = user;
     notifyListeners();
+    _startRealTimeStreams(user.id);
+  }
+
+  void _startRealTimeStreams(String workerDocumentId) {
+    _workerSub?.cancel();
+    _claimsSub?.cancel();
+
+    final firestoreService = FirestoreService();
+
+    // 1. Listen to Worker Details
+    _workerSub = firestoreService.getWorkerStream(workerDocumentId).listen((workerData) {
+      if (workerData != null && _currentUser != null) {
+        // Map updated worker data into current UserModel
+        _currentUser = UserModel(
+          id: _currentUser!.id,
+          firebaseUid: _currentUser!.firebaseUid,
+          name: workerData.name,
+          phone: workerData.phone,
+          city: workerData.city,
+          platform: workerData.platform,
+          avgDailyIncome: workerData.avgDailyIncome,
+          workingHours: workerData.workingHours,
+          zone: workerData.zone,
+          latitude: _currentUser!.latitude,
+          longitude: _currentUser!.longitude,
+          riskScore: workerData.riskScore,
+          isActive: workerData.hasActivePolicy,
+          preferredCoverage: workerData.preferredCoverage,
+        );
+        notifyListeners();
+      }
+    });
+
+    // 2. Listen to Claims
+    _claimsSub = firestoreService.getUserClaimsStream(workerDocumentId).listen((claimsList) {
+      _claims = claimsList.map((map) => ClaimModel.fromJson(map)).toList();
+      notifyListeners();
+    });
   }
 
   void setPolicies(List<PolicyModel> policies) {
@@ -152,6 +194,12 @@ class AppProvider extends ChangeNotifier {
     _transactions = [];
     _riskAssessment = null;
     _currentNavIndex = 0;
+    
+    await _workerSub?.cancel();
+    await _claimsSub?.cancel();
+    _workerSub = null;
+    _claimsSub = null;
+    
     notifyListeners();
   }
 
