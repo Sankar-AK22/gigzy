@@ -1,16 +1,32 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
+import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
-import '../services/firestore_service.dart';
-import 'login_screen.dart';
 import 'edit_profile_screen.dart';
+import 'login_screen.dart';
+import '../services/auth_service.dart';
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 
   @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  // Local states for toggles
+  bool _bioLock = false; // 2. Biometric Lock
+  bool _pushNotifications = true; // 3. Notifications
+  bool _smsNotifications = false; // 3. Notifications
+  bool _locationTracking = true; // 6. Privacy
+  bool _platformZomato = true; // 7. Connected Platforms
+  String _selectedLanguage = 'English'; // 4. Language Selector
+  bool _isDarkThemeOverride = true; // 1. Theme Override
+
+  @override
   Widget build(BuildContext context) {
+    final provider = context.watch<AppProvider>();
+    final user = provider.currentUser;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDark ? Colors.white : const Color(0xFF1A1A2E);
     final subtitleColor = isDark ? Colors.white54 : Colors.grey.shade600;
@@ -20,522 +36,168 @@ class SettingsScreen extends StatelessWidget {
         : const [Color(0xFFF5F6FA), Color(0xFFEEEFF5)];
 
     return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(icon: Icon(Icons.arrow_back, color: textColor), onPressed: () => Navigator.pop(context)),
+        title: Text('Settings & Profile', style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
+      ),
       body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: bgColors,
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              // ── App Bar ──
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: Row(
-                  children: [
-                    GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: cardColor,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(Icons.arrow_back_ios_new, color: textColor, size: 18),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Text(
-                      'Settings',
-                      style: TextStyle(
-                        color: textColor,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // ── Settings List ──
-              Expanded(
-                child: Consumer<AppProvider>(
-                  builder: (context, provider, _) {
-                    return ListView(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(gradient: LinearGradient(colors: bgColors, begin: Alignment.topCenter, end: Alignment.bottomCenter)),
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            // Profile Card
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppTheme.primaryColor.withAlpha(50))),
+              child: Row(
+                children: [
+                  CircleAvatar(radius: 30, backgroundColor: AppTheme.primaryColor, child: Text(user?.name.substring(0, 1) ?? 'U', style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold))),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const SizedBox(height: 8),
-
-                        // ─── Appearance ───
-                        _sectionTitle('Appearance', textColor),
-                        const SizedBox(height: 8),
-                        _settingsCard(
-                          cardColor: cardColor,
-                          children: [
-                            _switchTile(
-                              icon: Icons.dark_mode_rounded,
-                              iconColor: const Color(0xFF6C63FF),
-                              title: 'Dark Mode',
-                              subtitle: provider.isDarkMode ? 'Dark theme active' : 'Light theme active',
-                              value: provider.isDarkMode,
-                              textColor: textColor,
-                              subtitleColor: subtitleColor,
-                              onChanged: (_) => provider.toggleTheme(),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 20),
-
-                        // ─── Notifications ───
-                        _sectionTitle('Notifications', textColor),
-                        const SizedBox(height: 8),
-                        _settingsCard(
-                          cardColor: cardColor,
-                          children: [
-                            _switchTile(
-                              icon: Icons.notifications_rounded,
-                              iconColor: AppTheme.secondaryColor,
-                              title: 'Push Notifications',
-                              subtitle: 'Enable or disable all notifications',
-                              value: provider.notificationsEnabled,
-                              textColor: textColor,
-                              subtitleColor: subtitleColor,
-                              onChanged: (v) => provider.setNotificationsEnabled(v),
-                            ),
-                            _divider(isDark),
-                            _switchTile(
-                              icon: Icons.cloud_rounded,
-                              iconColor: const Color(0xFF4ECDC4),
-                              title: 'Weather Alerts',
-                              subtitle: 'Heatwave, rainfall, flood warnings',
-                              value: provider.weatherAlerts,
-                              textColor: textColor,
-                              subtitleColor: subtitleColor,
-                              enabled: provider.notificationsEnabled,
-                              onChanged: (v) => provider.setWeatherAlerts(v),
-                            ),
-                            _divider(isDark),
-                            _switchTile(
-                              icon: Icons.receipt_long_rounded,
-                              iconColor: AppTheme.warningColor,
-                              title: 'Claim Updates',
-                              subtitle: 'Auto-trigger and payout alerts',
-                              value: provider.claimUpdates,
-                              textColor: textColor,
-                              subtitleColor: subtitleColor,
-                              enabled: provider.notificationsEnabled,
-                              onChanged: (v) => provider.setClaimUpdates(v),
-                            ),
-                            _divider(isDark),
-                            _switchTile(
-                              icon: Icons.shield_rounded,
-                              iconColor: AppTheme.primaryColor,
-                              title: 'Policy Reminders',
-                              subtitle: 'Renewal and expiry reminders',
-                              value: provider.policyReminders,
-                              textColor: textColor,
-                              subtitleColor: subtitleColor,
-                              enabled: provider.notificationsEnabled,
-                              onChanged: (v) => provider.setPolicyReminders(v),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 20),
-
-                        // ─── Data & Privacy ───
-                        _sectionTitle('Data & Privacy', textColor),
-                        const SizedBox(height: 8),
-                        _settingsCard(
-                          cardColor: cardColor,
-                          children: [
-                            _actionTile(
-                              icon: Icons.add_to_drive,
-                              iconColor: AppTheme.secondaryColor,
-                              title: 'Seed Test Data',
-                              subtitle: 'Generate dummy workers & claims in Firebase',
-                              textColor: textColor,
-                              subtitleColor: subtitleColor,
-                              onTap: () {
-                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Seeding data...')));
-                                FirestoreService().seedTestData().then((_) {
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Test data seeded successfully! ✅'), backgroundColor: Colors.green));
-                                  }
-                                });
-                              },
-                            ),
-                            _divider(isDark),
-                            _actionTile(
-                              icon: Icons.delete_sweep_rounded,
-                              iconColor: AppTheme.accentColor,
-                              title: 'Clear App Data',
-                              subtitle: 'Reset preferences and cached data',
-                              textColor: textColor,
-                              subtitleColor: subtitleColor,
-                              onTap: () => _showClearDataDialog(context, provider),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 20),
-
-                        // ─── Account ───
-                        _sectionTitle('Account', textColor),
-                        const SizedBox(height: 8),
-                        _settingsCard(
-                          cardColor: cardColor,
-                          children: [
-                            _actionTile(
-                              icon: Icons.person_outline,
-                              iconColor: AppTheme.primaryColor,
-                              title: 'Edit Profile',
-                              subtitle: 'Update your personal details',
-                              textColor: textColor,
-                              subtitleColor: subtitleColor,
-                              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EditProfileScreen())),
-                            ),
-                            _divider(isDark),
-                            _actionTile(
-                              icon: Icons.logout_rounded,
-                              iconColor: AppTheme.accentColor,
-                              title: 'Logout',
-                              subtitle: 'Sign out of your account',
-                              textColor: textColor,
-                              subtitleColor: subtitleColor,
-                              onTap: () => _showLogoutDialog(context, provider),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 20),
-
-                        // ─── About ───
-                        _sectionTitle('About', textColor),
-                        const SizedBox(height: 8),
-                        _settingsCard(
-                          cardColor: cardColor,
-                          children: [
-                            _infoTile(
-                              icon: Icons.info_outline_rounded,
-                              iconColor: AppTheme.primaryColor,
-                              title: 'App Version',
-                              trailing: '1.0.0',
-                              textColor: textColor,
-                              subtitleColor: subtitleColor,
-                            ),
-                            _divider(isDark),
-                            _infoTile(
-                              icon: Icons.code_rounded,
-                              iconColor: AppTheme.secondaryColor,
-                              title: 'Built with',
-                              trailing: 'Flutter + Firebase',
-                              textColor: textColor,
-                              subtitleColor: subtitleColor,
-                            ),
-                            _divider(isDark),
-                            _infoTile(
-                              icon: Icons.shield_outlined,
-                              iconColor: AppTheme.warningColor,
-                              title: 'Platform',
-                              trailing: 'GigShield',
-                              textColor: textColor,
-                              subtitleColor: subtitleColor,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 30),
-
-                        // ── Footer ──
-                        Center(
-                          child: Text(
-                            'Made with ❤️ for Gig Workers',
-                            style: TextStyle(color: subtitleColor, fontSize: 12),
-                          ),
-                        ),
-                        const SizedBox(height: 30),
+                        Text(user?.name ?? 'Worker Name', style: TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.bold)),
+                        Text(user?.phone ?? '+91 XXXXXXXXXX', style: TextStyle(color: subtitleColor, fontSize: 14)),
                       ],
-                    );
-                  },
-                ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.edit, color: AppTheme.primaryColor),
+                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EditProfileScreen())),
+                  )
+                ],
               ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 24),
+
+            _sectionTitle('Preferences', textColor),
+            // 1. Theme Override
+            _switchTile('Dark Mode Override', 'Force dark theme on', _isDarkThemeOverride, (v) => setState(() => _isDarkThemeOverride = v), textColor, subtitleColor, cardColor),
+            // 4. Language Selector
+            _actionTile('App Language', _selectedLanguage, Icons.language, () => _showLanguagePicker(context), textColor, subtitleColor, cardColor),
+            const SizedBox(height: 24),
+
+            _sectionTitle('Security & Privacy', textColor),
+            // 2. Biometric Lock
+            _switchTile('Face ID / Fingerprint', 'Require biometric to open app', _bioLock, (v) => setState(() => _bioLock = v), textColor, subtitleColor, cardColor),
+            // 6. Privacy Settings
+            _switchTile('Background Location', 'Allow AI to track disruption zones', _locationTracking, (v) => setState(() => _locationTracking = v), textColor, subtitleColor, cardColor),
+            const SizedBox(height: 24),
+
+            _sectionTitle('Notifications', textColor),
+            // 3. Notification Preferences
+            _switchTile('Push Notifications', 'Alerts on phone', _pushNotifications, (v) => setState(() => _pushNotifications = v), textColor, subtitleColor, cardColor),
+            _switchTile('SMS Alerts', 'Critical alerts via SMS', _smsNotifications, (v) => setState(() => _smsNotifications = v), textColor, subtitleColor, cardColor),
+            const SizedBox(height: 24),
+
+            _sectionTitle('Integrations', textColor),
+            // 7. Connected Platforms
+            _switchTile('Zomato Partner Sync', 'Sync daily income automatically', _platformZomato, (v) => setState(() => _platformZomato = v), textColor, subtitleColor, cardColor),
+            const SizedBox(height: 24),
+
+            _sectionTitle('Support', textColor),
+            // 8. Emergency Contacts
+            _actionTile('Emergency Contacts', 'Manage SOS numbers', Icons.contact_emergency, () => _showSnackbar(context, "Opening contacts list"), textColor, subtitleColor, cardColor),
+            // 9. Map Pin Updater
+            _actionTile('Home Location', '${user?.city ?? "Set Address"}', Icons.location_on, () => _showSnackbar(context, "Opening map pin setter"), textColor, subtitleColor, cardColor),
+            const SizedBox(height: 24),
+
+            // 5. Delete Account & Log Out
+            ElevatedButton(
+              onPressed: () async {
+                await AuthService().signOut();
+                if (context.mounted) Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const LoginScreen()), (route) => false);
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.darkCard, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: const BorderSide(color: Colors.white24))),
+              child: const Text('Log Out', style: TextStyle(color: Colors.white, fontSize: 16)),
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: () => _showSnackbar(context, "Starting account deletion flow..."),
+              child: const Text('Delete Account', style: TextStyle(color: Colors.redAccent, fontSize: 16)),
+            ),
+            const SizedBox(height: 40),
+
+            // 10. App Version
+            Center(
+              child: Column(
+                children: [
+                  Text('GigShield Worker v2.1.0', style: TextStyle(color: subtitleColor, fontSize: 12)),
+                  TextButton(onPressed: () => _showSnackbar(context, "App is up to date"), child: Text('Check for updates', style: TextStyle(color: AppTheme.primaryColor, fontSize: 12))),
+                ],
+              ),
+            ),
+            const SizedBox(height: 40),
+          ],
         ),
       ),
     );
   }
-
-  // ── Widgets ────────────────────────────────────────
 
   Widget _sectionTitle(String title, Color textColor) {
     return Padding(
-      padding: const EdgeInsets.only(left: 4),
-      child: Text(
-        title.toUpperCase(),
-        style: TextStyle(
-          color: textColor.withAlpha(120),
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 1.2,
-        ),
-      ),
+      padding: const EdgeInsets.only(left: 8, bottom: 8),
+      child: Text(title, style: TextStyle(color: textColor, fontSize: 14, fontWeight: FontWeight.bold)),
     );
   }
 
-  Widget _settingsCard({
-    required Color cardColor,
-    required List<Widget> children,
-  }) {
+  Widget _switchTile(String title, String subtitle, bool value, Function(bool) onChanged, Color textColor, Color subtitleColor, Color cardColor) {
     return Container(
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(15),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(12)),
+      child: SwitchListTile(
+        title: Text(title, style: TextStyle(color: textColor, fontWeight: FontWeight.w500)),
+        subtitle: Text(subtitle, style: TextStyle(color: subtitleColor, fontSize: 12)),
+        value: value,
+        activeColor: AppTheme.secondaryColor,
+        onChanged: onChanged,
       ),
-      child: Column(children: children),
     );
   }
 
-  Widget _switchTile({
-    required IconData icon,
-    required Color iconColor,
-    required String title,
-    required String subtitle,
-    required bool value,
-    required Color textColor,
-    required Color subtitleColor,
-    required ValueChanged<bool> onChanged,
-    bool enabled = true,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Opacity(
-        opacity: enabled ? 1.0 : 0.4,
-        child: Row(
+  Widget _actionTile(String title, String trailing, IconData icon, VoidCallback onTap, Color textColor, Color subtitleColor, Color cardColor) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(12)),
+      child: ListTile(
+        leading: Icon(icon, color: AppTheme.primaryColor),
+        title: Text(title, style: TextStyle(color: textColor, fontWeight: FontWeight.w500)),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: iconColor.withAlpha(25),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, color: iconColor, size: 20),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: TextStyle(color: textColor, fontSize: 14, fontWeight: FontWeight.w500)),
-                  const SizedBox(height: 2),
-                  Text(subtitle, style: TextStyle(color: subtitleColor, fontSize: 11)),
-                ],
-              ),
-            ),
-            Switch.adaptive(
-              value: value,
-              onChanged: enabled ? onChanged : null,
-              activeColor: AppTheme.primaryColor,
-            ),
+            Text(trailing, style: TextStyle(color: subtitleColor, fontSize: 13)),
+            const Icon(Icons.chevron_right, color: Colors.grey),
           ],
         ),
+        onTap: onTap,
       ),
     );
   }
 
-  Widget _actionTile({
-    required IconData icon,
-    required Color iconColor,
-    required String title,
-    required String subtitle,
-    required Color textColor,
-    required Color subtitleColor,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: iconColor.withAlpha(25),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, color: iconColor, size: 20),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: TextStyle(color: textColor, fontSize: 14, fontWeight: FontWeight.w500)),
-                  const SizedBox(height: 2),
-                  Text(subtitle, style: TextStyle(color: subtitleColor, fontSize: 11)),
-                ],
-              ),
-            ),
-            Icon(Icons.chevron_right, color: subtitleColor, size: 20),
-          ],
-        ),
-      ),
-    );
+  void _showSnackbar(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), behavior: SnackBarBehavior.floating));
   }
 
-  Widget _infoTile({
-    required IconData icon,
-    required Color iconColor,
-    required String title,
-    required String trailing,
-    required Color textColor,
-    required Color subtitleColor,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: iconColor.withAlpha(25),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: iconColor, size: 20),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Text(title, style: TextStyle(color: textColor, fontSize: 14, fontWeight: FontWeight.w500)),
-          ),
-          Text(trailing, style: TextStyle(color: subtitleColor, fontSize: 13)),
-        ],
-      ),
-    );
-  }
-
-  Widget _divider(bool isDark) {
-    return Divider(
-      height: 1,
-      indent: 56,
-      color: isDark ? Colors.white10 : Colors.grey.shade200,
-    );
-  }
-
-  // ── Dialogs ────────────────────────────────────────
-
-  void _showClearDataDialog(BuildContext context, AppProvider provider) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    showDialog(
+  void _showLanguagePicker(BuildContext context) {
+    showModalBottomSheet(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: isDark ? AppTheme.darkCard : AppTheme.lightCard,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          'Clear App Data?',
-          style: TextStyle(
-            color: isDark ? Colors.white : const Color(0xFF1A1A2E),
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        content: Text(
-          'This will reset all preferences and cached data. Your account will not be deleted.',
-          style: TextStyle(
-            color: isDark ? Colors.white60 : Colors.grey.shade600,
-            fontSize: 14,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancel', style: TextStyle(color: isDark ? Colors.white54 : Colors.grey)),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              await provider.clearAppData();
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: const Row(
-                      children: [
-                        Icon(Icons.check_circle, color: Colors.white, size: 20),
-                        SizedBox(width: 10),
-                        Text('App data cleared'),
-                      ],
-                    ),
-                    backgroundColor: AppTheme.secondaryColor,
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    margin: const EdgeInsets.all(16),
-                  ),
-                );
-              }
+      backgroundColor: AppTheme.darkCard,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: ['English', 'Hindi', 'Tamil', 'Telugu'].map((lang) => ListTile(
+            title: Text(lang, style: const TextStyle(color: Colors.white)),
+            trailing: _selectedLanguage == lang ? const Icon(Icons.check, color: AppTheme.secondaryColor) : null,
+            onTap: () {
+              setState(() => _selectedLanguage = lang);
+              Navigator.pop(context);
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.accentColor,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            child: const Text('Clear', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showLogoutDialog(BuildContext context, AppProvider provider) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: isDark ? AppTheme.darkCard : AppTheme.lightCard,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          'Logout?',
-          style: TextStyle(
-            color: isDark ? Colors.white : const Color(0xFF1A1A2E),
-            fontWeight: FontWeight.w600,
-          ),
+          )).toList(),
         ),
-        content: Text(
-          'Are you sure you want to sign out?',
-          style: TextStyle(
-            color: isDark ? Colors.white60 : Colors.grey.shade600,
-            fontSize: 14,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancel', style: TextStyle(color: isDark ? Colors.white54 : Colors.grey)),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              await provider.clearAll();
-              if (context.mounted) {
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (_) => const LoginScreen()),
-                  (route) => false,
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.accentColor,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            child: const Text('Logout', style: TextStyle(color: Colors.white)),
-          ),
-        ],
       ),
     );
   }

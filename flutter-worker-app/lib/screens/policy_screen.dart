@@ -2,11 +2,34 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
-import '../theme/app_theme.dart';
-import '../services/firestore_service.dart';
+import 'dart:math';
 
-class PolicyScreen extends StatelessWidget {
+class PolicyScreen extends StatefulWidget {
   const PolicyScreen({super.key});
+
+  @override
+  State<PolicyScreen> createState() => _PolicyScreenState();
+}
+
+class _PolicyScreenState extends State<PolicyScreen> with SingleTickerProviderStateMixin {
+  late AnimationController _animController;
+  late Animation<double> _gaugeAnim;
+  bool _autoRenew = true;
+  double _coverageAmount = 1200;
+
+  @override
+  void initState() {
+    super.initState();
+    _animController = AnimationController(vsync: this, duration: const Duration(milliseconds: 1500));
+    _gaugeAnim = Tween<double>(begin: 0, end: 1).animate(CurvedAnimation(parent: _animController, curve: Curves.easeOutBack));
+    _animController.forward();
+  }
+
+  @override
+  void dispose() {
+    _animController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -21,54 +44,39 @@ class PolicyScreen extends StatelessWidget {
     
     final provider = context.watch<AppProvider>();
     final user = provider.currentUser;
-    final bool isWaitingPeriod = false; // Based on active policy
-    
     bool hasActivePolicy = user?.isActive ?? false;
 
-        return Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(colors: bgColors, begin: Alignment.topCenter, end: Alignment.bottomCenter),
-          ),
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: bgColors, begin: Alignment.topCenter, end: Alignment.bottomCenter),
+      ),
       child: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Insurance Policy', style: TextStyle(color: textColor, fontSize: 24, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 4),
-              Text('Weekly parametric income protection', style: TextStyle(color: subtitleColor)),
-              const SizedBox(height: 16),
-              
-              if (isWaitingPeriod)
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppTheme.warningColor.withAlpha(25),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppTheme.warningColor.withAlpha(77)),
-                  ),
-                  child: Row(
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.timer_outlined, color: AppTheme.warningColor, size: 28),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Waiting Period Active', style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 4),
-                            Text('You must complete 30 days of continuous work before claims can be approved.', style: TextStyle(color: subtitleColor, fontSize: 13)),
-                          ],
-                        ),
-                      ),
+                      Text('Insurance Policy', style: TextStyle(color: textColor, fontSize: 24, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 4),
+                      Text('Weekly parametric income protection', style: TextStyle(color: subtitleColor)),
                     ],
                   ),
-                ),
-                
+                  // 2. Share Policy Document
+                  IconButton(
+                    icon: const Icon(Icons.share, color: AppTheme.primaryColor),
+                    onPressed: () => _showSnackbar(context, "Sharing policy document..."),
+                  )
+                ],
+              ),
               const SizedBox(height: 24),
 
-              // Risk Assessment Card
+              // 1. Animated Risk Gauge
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(20),
@@ -78,44 +86,52 @@ class PolicyScreen extends StatelessWidget {
                   border: Border.all(color: AppTheme.primaryColor.withAlpha(77)),
                 ),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(children: [
-                      const Icon(Icons.analytics_rounded, color: AppTheme.primaryColor),
-                      const SizedBox(width: 8),
-                      Text('AI Risk Assessment', style: TextStyle(color: textColor, fontSize: 16, fontWeight: FontWeight.w600)),
-                      const Spacer(),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(color: ((user?.riskScore ?? 0.65) > 0.75 ? AppTheme.accentColor : ((user?.riskScore ?? 0.65) > 0.4 ? AppTheme.warningColor : Colors.green)).withAlpha(51), borderRadius: BorderRadius.circular(8)),
-                        child: Text((user?.riskScore ?? 0.65) > 0.75 ? 'HIGH' : (user?.riskScore ?? 0.65) > 0.4 ? 'MEDIUM' : 'LOW', style: TextStyle(color: (user?.riskScore ?? 0.65) > 0.75 ? AppTheme.accentColor : ((user?.riskScore ?? 0.65) > 0.4 ? AppTheme.warningColor : Colors.green), fontSize: 11, fontWeight: FontWeight.w600)),
-                      ),
-                    ]),
+                    Text('AI Risk Score', style: TextStyle(color: textColor, fontSize: 16, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 20),
+                    AnimatedBuilder(
+                      animation: _gaugeAnim,
+                      builder: (context, child) {
+                        final risk = (user?.riskScore ?? 0.65) * _gaugeAnim.value;
+                        return Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            SizedBox(
+                              width: 150, height: 150,
+                              child: CircularProgressIndicator(
+                                value: risk,
+                                strokeWidth: 12,
+                                backgroundColor: isDark ? Colors.white12 : Colors.grey.shade200,
+                                valueColor: AlwaysStoppedAnimation(
+                                  risk > 0.75 ? AppTheme.accentColor : risk > 0.4 ? AppTheme.warningColor : Colors.green
+                                ),
+                              ),
+                            ),
+                            Column(
+                              children: [
+                                Text('${(risk * 100).toInt()}', style: TextStyle(color: textColor, fontSize: 40, fontWeight: FontWeight.bold)),
+                                Text('out of 100', style: TextStyle(color: subtitleColor, fontSize: 12)),
+                              ],
+                            )
+                          ],
+                        );
+                      }
+                    ),
                     const SizedBox(height: 20),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
-                        _riskMetric('Risk Score', '${user?.riskScore ?? 0.65}', AppTheme.warningColor),
+                        _riskMetric('Risk Factor', 'Medium', AppTheme.warningColor),
                         Container(width: 1, height: 40, color: dividerColor),
                         _riskMetric('Premium', '₹35/wk', AppTheme.primaryColor),
-                        Container(width: 1, height: 40, color: dividerColor),
-                        _riskMetric('Coverage', '₹${(user?.preferredCoverage ?? 1200).toStringAsFixed(0)}', AppTheme.secondaryColor),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    Divider(color: dividerColor),
-                    const SizedBox(height: 12),
-                    Text('Risk Factors', style: TextStyle(color: subtitleColor, fontSize: 13)),
-                    const SizedBox(height: 8),
-                    _riskFactor('🌧️', 'Monsoon season — high rainfall risk in ${user?.city ?? 'your city'}', subtitleColor),
-                    _riskFactor('🌡️', 'Historical heatwave frequency: 4 events in ${user?.zone ?? 'your area'}', subtitleColor),
-                    _riskFactor('📍', 'High-risk city factor: ${(user?.riskScore ?? 0.80).toStringAsFixed(2)}', subtitleColor),
                   ],
                 ),
               ),
               const SizedBox(height: 24),
 
-              // Policy Card (Conditional on hasActivePolicy)
+              // Policy Card
               if (hasActivePolicy)
                 Container(
                   width: double.infinity,
@@ -135,82 +151,135 @@ class PolicyScreen extends StatelessWidget {
                       _policyDetail('Start Date', 'Recent'),
                       _policyDetail('End Date', 'Active'),
                       _policyDetail('Premium Paid', '₹35'),
-                      _policyDetail('Coverage Limit', '₹${(user?.preferredCoverage ?? 1200).toStringAsFixed(0)}'),
+                      _policyDetail('Coverage Limit', '₹${_coverageAmount.toStringAsFixed(0)}'),
                       _policyDetail('Status', 'Active ✅'),
-                    ],
-                  ),
-                )
-              else
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: cardColor,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppTheme.warningColor.withAlpha(77)),
-                  ),
-                  child: Column(
-                    children: [
-                      const Icon(Icons.pending_actions_rounded, color: AppTheme.warningColor, size: 48),
                       const SizedBox(height: 16),
-                      Text('No Active Policy', style: TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 8),
-                      Text('Your policy is currently pending assignment from the admin dashboard.', 
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: subtitleColor, fontSize: 14)
-                      ),
+                      // 10. Download PDF Certificate
+                      OutlinedButton.icon(
+                        onPressed: () => _showSnackbar(context, "Downloading PDF..."),
+                        icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
+                        label: const Text('Download Certificate', style: TextStyle(color: Colors.white)),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Colors.white54),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      )
                     ],
                   ),
                 ),
               const SizedBox(height: 24),
 
-              // What's Covered
-              Text("What's Covered", style: TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 12),
-              _coverageItem('🌧️', 'Heavy Rainfall', 'Rainfall > 60mm in your zone', cardColor, textColor, subtitleColor),
-              _coverageItem('🌡️', 'Extreme Heat', 'Temperature > 42°C', cardColor, textColor, subtitleColor),
-              _coverageItem('😷', 'Severe Pollution', 'AQI > 350', cardColor, textColor, subtitleColor),
-              _coverageItem('🌊', 'Flood Alert', 'Government flood warning', cardColor, textColor, subtitleColor),
-              _coverageItem('🚫', 'Curfew/Lockdown', 'Official curfew in your area', cardColor, textColor, subtitleColor),
-              const SizedBox(height: 24),
-
-              // Renew
-              SizedBox(
-                width: double.infinity, height: 56,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Processing Policy Renewal...'),
-                        duration: Duration(seconds: 1),
-                      )
-                    );
-                    Future.delayed(const Duration(seconds: 1), () {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Policy successfully renewed! ✅'),
-                            backgroundColor: Colors.green,
-                          )
-                        );
-                      }
-                    });
-                  },
-                  icon: const Icon(Icons.autorenew_rounded),
-                  label: const Text('Renew Policy Now', style: TextStyle(fontSize: 16)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.secondaryColor, 
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))
-                  ),
+              // 6. Coverage Customizer
+              Text("Adjust Coverage Limit", style: TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.w600)),
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(16)),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('₹500', style: TextStyle(color: subtitleColor)),
+                        Text('₹${_coverageAmount.toStringAsFixed(0)}', style: TextStyle(color: AppTheme.secondaryColor, fontSize: 18, fontWeight: FontWeight.bold)),
+                        Text('₹2000', style: TextStyle(color: subtitleColor)),
+                      ],
+                    ),
+                    Slider(
+                      value: _coverageAmount,
+                      min: 500, max: 2000, divisions: 15,
+                      activeColor: AppTheme.secondaryColor,
+                      onChanged: (val) => setState(() => _coverageAmount = val),
+                    ),
+                    Text('Estimated Premium: ₹${(_coverageAmount * 0.03).toStringAsFixed(0)}/wk', style: TextStyle(color: textColor, fontWeight: FontWeight.w500)),
+                  ],
                 ),
               ),
               const SizedBox(height: 24),
+
+              // 4. Auto-Renewal Toggle
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(16)),
+                child: SwitchListTile(
+                  title: Text('Auto-Renew Policy', style: TextStyle(color: textColor, fontWeight: FontWeight.w600)),
+                  subtitle: Text('Automatically deduct premium every week', style: TextStyle(color: subtitleColor, fontSize: 12)),
+                  value: _autoRenew,
+                  activeColor: AppTheme.secondaryColor,
+                  onChanged: (val) => setState(() => _autoRenew = val),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // 5. Beneficiary Section
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text("Beneficiaries", style: TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.w600)),
+                  TextButton.icon(onPressed: (){}, icon: const Icon(Icons.add), label: const Text('Add'))
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(16)),
+                child: ListTile(
+                  leading: const CircleAvatar(backgroundColor: AppTheme.primaryColor, child: Icon(Icons.person, color: Colors.white)),
+                  title: Text('Priya Devi', style: TextStyle(color: textColor, fontWeight: FontWeight.w500)),
+                  subtitle: Text('Spouse • 100% Share', style: TextStyle(color: subtitleColor)),
+                  trailing: const Icon(Icons.edit, color: AppTheme.primaryColor),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // 7. "What's Not Covered" Expandable
+              Theme(
+                data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                child: ExpansionTile(
+                  title: Text("What's Not Covered (Exclusions)", style: TextStyle(color: textColor, fontWeight: FontWeight.w600)),
+                  collapsedIconColor: AppTheme.primaryColor,
+                  iconColor: AppTheme.primaryColor,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                      child: Text("• Personal vehicle damage\n• Loss of items during transit\n• Non-weather related app outages\n• Illness not caused by weather extremes", style: TextStyle(color: subtitleColor, height: 1.5)),
+                    )
+                  ],
+                ),
+              ),
+              
+              // 8. Compare Plans & 9. Zone Map Mockup & 3. Policy History Timeline
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.map, color: AppTheme.secondaryColor),
+                title: Text('View Active Insurance Zones', style: TextStyle(color: textColor)),
+                trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+                onTap: () => _showSnackbar(context, "Opening interactive map..."),
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.history, color: AppTheme.primaryColor),
+                title: Text('Policy History Timeline', style: TextStyle(color: textColor)),
+                trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+                onTap: () => _showSnackbar(context, "Loading history..."),
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.compare_arrows, color: AppTheme.warningColor),
+                title: Text('Compare Premium Plans', style: TextStyle(color: textColor)),
+                trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+                onTap: () => _showSnackbar(context, "Opening comparison modal..."),
+              ),
+
+              const SizedBox(height: 40),
             ],
           ),
         ),
       ),
     );
+  }
+
+  void _showSnackbar(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), behavior: SnackBarBehavior.floating));
   }
 
   Widget _riskMetric(String label, String value, Color color) {
@@ -221,40 +290,12 @@ class PolicyScreen extends StatelessWidget {
     ]);
   }
 
-  Widget _riskFactor(String emoji, String text, Color subtitleColor) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(children: [
-        Text(emoji, style: const TextStyle(fontSize: 16)),
-        const SizedBox(width: 8),
-        Expanded(child: Text(text, style: TextStyle(color: subtitleColor, fontSize: 13))),
-      ]),
-    );
-  }
-
   Widget _policyDetail(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
         Text(label, style: const TextStyle(color: Colors.white60, fontSize: 13)),
         Text(value, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500)),
-      ]),
-    );
-  }
-
-  Widget _coverageItem(String emoji, String title, String desc, Color cardColor, Color textColor, Color subtitleColor) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(12)),
-      child: Row(children: [
-        Text(emoji, style: const TextStyle(fontSize: 24)),
-        const SizedBox(width: 12),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(title, style: TextStyle(color: textColor, fontWeight: FontWeight.w500)),
-          Text(desc, style: TextStyle(color: subtitleColor, fontSize: 12)),
-        ])),
-        const Icon(Icons.check_circle, color: AppTheme.secondaryColor, size: 20),
       ]),
     );
   }

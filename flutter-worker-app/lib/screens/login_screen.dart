@@ -1,11 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../services/auth_service.dart';
-import '../services/api_service.dart';
-import '../providers/app_provider.dart';
-import 'package:local_auth/local_auth.dart';
-import 'onboarding_screen.dart';
 import 'home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -17,235 +12,171 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _phoneController = TextEditingController();
-  final _otpController = TextEditingController();
-  bool _otpSent = false;
+  final _passwordController = TextEditingController();
+  final _authService = AuthService();
   bool _isLoading = false;
-  String? _verificationId;
-  final LocalAuthentication _localAuth = LocalAuthentication();
+  bool _obscurePassword = true;
 
   @override
-  void initState() {
-    super.initState();
-    _checkBiometric();
+  void dispose() {
+    _phoneController.dispose();
+    _passwordController.dispose();
+    super.dispose();
   }
 
-  Future<void> _checkBiometric() async {
-    // Optional initially check if biometrics are enrolled, could be used for UI hints
-  }
-
-  Future<void> _biometricLogin() async {
-    setState(() => _isLoading = true);
-    try {
-      final bool canAuthenticateWithBiometrics = await _localAuth.canCheckBiometrics;
-      final bool canAuthenticate = canAuthenticateWithBiometrics || await _localAuth.isDeviceSupported();
-
-      if (!canAuthenticate) {
-        throw Exception('Biometric authentication is not available on this device.');
-      }
-
-      final bool didAuthenticate = await _localAuth.authenticate(
-        localizedReason: 'Scan your face or fingerprint to log in to GigShield',
+  void _handleLogin() async {
+    if (_phoneController.text.isEmpty || _passwordController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter all fields')),
       );
-
-      if (didAuthenticate) {
-        // Log them in natively (Mocking Firebase UUID for demo)
-        await _authSuccess('firebase_uid_001'); // In real app, store securely
-      } else {
-        setState(() => _isLoading = false);
-      }
-    } catch (e) {
-      setState(() => _isLoading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Authentication failed: $e')));
-      }
+      return;
     }
-  }
 
-  Future<void> _authSuccess(String firebaseUid) async {
-    final apiService = context.read<ApiService>();
-    final appProvider = context.read<AppProvider>();
-    final existingUser = await apiService.getUserByFirebaseUid(firebaseUid);
-
-    if (mounted) {
-      if (existingUser != null) {
-        appProvider.setCurrentUser(existingUser);
+    setState(() => _isLoading = true);
+    
+    try {
+      final user = await _authService.signIn(
+        _phoneController.text.trim(),
+        _passwordController.text.trim(),
+      );
+      
+      if (user != null && mounted) {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const HomeScreen()),
         );
       } else {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => OnboardingScreen(
-              firebaseUid: firebaseUid,
-              phone: '+91${_phoneController.text}',
-            ),
-          ),
+        throw Exception('Login failed');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${e.toString().replaceAll('Exception: ', '')}')),
         );
       }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : const Color(0xFF1A1A2E);
+    final subtitleColor = isDark ? Colors.white60 : Colors.grey.shade600;
+    final cardColor = isDark ? AppTheme.darkCard : AppTheme.lightCard;
+    final bgColors = isDark
+        ? const [Color(0xFF0A0E21), Color(0xFF1A1A2E)]
+        : const [Color(0xFFF5F6FA), Color(0xFFEEEFF5)];
+
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF0A0E21), Color(0xFF1A1A2E)],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
+        height: MediaQuery.of(context).size.height,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(colors: bgColors, begin: Alignment.topCenter, end: Alignment.bottomCenter),
         ),
         child: SafeArea(
+          // Wrapped in SingleChildScrollView to completely prevent RenderFlex crashes on Android
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24.0),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const SizedBox(height: 40),
-                // Header
-                Container(
-                  width: 64,
-                  height: 64,
-                  decoration: BoxDecoration(
-                    gradient: AppTheme.primaryGradient,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: const Icon(Icons.shield_rounded, color: Colors.white, size: 32),
-                ),
+                const Icon(Icons.shield_rounded, size: 80, color: AppTheme.primaryColor),
                 const SizedBox(height: 24),
-                const Text(
-                  'Welcome to\nGigShield',
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                    height: 1.2,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Parametric insurance for gig workers.\nProtect your income from disruptions.',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.white.withOpacity(0.6),
-                    height: 1.5,
-                  ),
-                ),
+                Text('Welcome to\nGigShield', style: TextStyle(color: textColor, fontSize: 36, fontWeight: FontWeight.bold, height: 1.2), textAlign: TextAlign.center),
+                const SizedBox(height: 12),
+                Text('Secure your earnings against\nweather disruptions.', style: TextStyle(color: subtitleColor, fontSize: 16), textAlign: TextAlign.center),
                 const SizedBox(height: 48),
 
-                // Phone Input
-                if (!_otpSent) ...[
-                  const Text('Phone Number', style: TextStyle(color: Colors.white70, fontSize: 14)),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _phoneController,
-                    keyboardType: TextInputType.phone,
-                    style: const TextStyle(color: Colors.white, fontSize: 18),
-                    decoration: InputDecoration(
-                      prefixText: '+91 ',
-                      prefixStyle: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 18),
-                      hintText: '9876543210',
-                      hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
-                    ),
+                // Form Container
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: cardColor,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: AppTheme.primaryColor.withAlpha(50)),
+                    boxShadow: [
+                      BoxShadow(color: Colors.black.withAlpha(20), blurRadius: 20, offset: const Offset(0, 10)),
+                    ],
                   ),
-                ] else ...[
-                  const Text('Enter OTP', style: TextStyle(color: Colors.white70, fontSize: 14)),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _otpController,
-                    keyboardType: TextInputType.number,
-                    style: const TextStyle(color: Colors.white, fontSize: 24, letterSpacing: 8),
-                    textAlign: TextAlign.center,
-                    maxLength: 6,
-                    decoration: InputDecoration(
-                      hintText: '• • • • • •',
-                      hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
-                      counterText: '',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextButton(
-                    onPressed: () => setState(() {
-                      _otpSent = false;
-                      _otpController.clear();
-                    }),
-                    child: const Text('Change number', style: TextStyle(color: AppTheme.secondaryColor)),
-                  ),
-                ],
-
-                const SizedBox(height: 24),
-
-                // Submit Button
-                SizedBox(
-                  width: double.infinity,
-                  height: 56,
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : (_otpSent ? _verifyOtp : _sendOtp),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    ),
-                    child: _isLoading
-                        ? const SizedBox(
-                            width: 24, height: 24,
-                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                          )
-                        : Text(
-                            _otpSent ? 'Verify OTP' : 'Send OTP',
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                          ),
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-
-                // Demo Login Button
-                SizedBox(
-                  width: double.infinity,
-                  height: 56,
-                  child: OutlinedButton(
-                    onPressed: _isLoading ? null : _demoLogin,
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: AppTheme.secondaryColor.withOpacity(0.5)),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    ),
-                    child: const Text(
-                      'Demo Login (Hackathon)',
-                      style: TextStyle(color: AppTheme.secondaryColor, fontSize: 14),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-
-                // Face / Biometric Scan Button
-                SizedBox(
-                  width: double.infinity,
-                  height: 56,
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : _biometricLogin,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white10,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      elevation: 0,
-                    ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.face_retouching_natural, color: Colors.white, size: 24),
-                        SizedBox(width: 12),
-                        Text(
-                          'Face Login / Biometric',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
+                  child: Column(
+                    children: [
+                      TextField(
+                        controller: _phoneController,
+                        keyboardType: TextInputType.phone,
+                        style: TextStyle(color: textColor),
+                        decoration: InputDecoration(
+                          labelText: 'Phone Number',
+                          labelStyle: TextStyle(color: subtitleColor),
+                          prefixIcon: const Icon(Icons.phone_android, color: AppTheme.primaryColor),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: isDark ? Colors.white24 : Colors.black12)),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: isDark ? Colors.white24 : Colors.black12)),
+                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2)),
                         ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: _passwordController,
+                        obscureText: _obscurePassword,
+                        style: TextStyle(color: textColor),
+                        decoration: InputDecoration(
+                          labelText: 'Password',
+                          labelStyle: TextStyle(color: subtitleColor),
+                          prefixIcon: const Icon(Icons.lock_outline, color: AppTheme.primaryColor),
+                          suffixIcon: IconButton(
+                            icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, color: subtitleColor),
+                            onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                          ),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: isDark ? Colors.white24 : Colors.black12)),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: isDark ? Colors.white24 : Colors.black12)),
+                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2)),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: () {},
+                          child: const Text('Forgot Password?', style: TextStyle(color: AppTheme.primaryColor)),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 56,
+                        child: ElevatedButton(
+                          onPressed: _isLoading ? null : _handleLogin,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.secondaryColor,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          ),
+                          child: _isLoading
+                              ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                              : const Text('Login', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-
+                
+                const SizedBox(height: 24),
+                // Biometric Mockup
+                Center(
+                  child: Column(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.fingerprint, size: 40, color: AppTheme.primaryColor),
+                        onPressed: () {
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Biometric Login Successful')));
+                          Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HomeScreen()));
+                        },
+                      ),
+                      Text('Login with Biometrics', style: TextStyle(color: subtitleColor, fontSize: 12)),
+                    ],
+                  ),
+                ),
                 const SizedBox(height: 40),
               ],
             ),
@@ -253,79 +184,5 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       ),
     );
-  }
-
-  Future<void> _sendOtp() async {
-    if (_phoneController.text.length < 10) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter a valid phone number')),
-      );
-      return;
-    }
-
-    setState(() => _isLoading = true);
-    try {
-      final authService = context.read<AuthService>();
-      _verificationId = await authService.sendOtp('+91${_phoneController.text}');
-      setState(() {
-        _otpSent = true;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() => _isLoading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
-      }
-    }
-  }
-
-  Future<void> _verifyOtp() async {
-    setState(() => _isLoading = true);
-    try {
-      final authService = context.read<AuthService>();
-      final apiService = context.read<ApiService>();
-      final appProvider = context.read<AppProvider>();
-
-      final firebaseUid = await authService.verifyOtp(
-        _verificationId ?? '',
-        _otpController.text,
-      );
-
-      // Check if user exists
-      await _authSuccess(firebaseUid);
-    } catch (e) {
-      setState(() => _isLoading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Verification failed: $e')),
-        );
-      }
-    }
-  }
-
-  Future<void> _demoLogin() async {
-    setState(() => _isLoading = true);
-    try {
-      final authService = context.read<AuthService>();
-      await authService.demoLogin();
-
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
-        );
-      }
-    } catch (e) {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  @override
-  void dispose() {
-    _phoneController.dispose();
-    _otpController.dispose();
-    super.dispose();
   }
 }

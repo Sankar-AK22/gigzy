@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
+import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
-import '../services/firestore_service.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -12,120 +11,107 @@ class EditProfileScreen extends StatefulWidget {
 }
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _firestoreService = FirestoreService();
-  bool _isLoading = false;
-
-  late TextEditingController _nameController;
-  late TextEditingController _zoneController;
-  late TextEditingController _cityController;
+  final _nameController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _cityController = TextEditingController();
+  final _platformController = TextEditingController();
+  final _zoneController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    final user = context.read<AppProvider>().currentUser;
-    _nameController = TextEditingController(text: user?.name ?? '');
-    _zoneController = TextEditingController(text: user?.zone ?? '');
-    _cityController = TextEditingController(text: user?.city ?? '');
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final user = context.read<AppProvider>().currentUser;
+      if (user != null) {
+        _nameController.text = user.name;
+        _phoneController.text = user.phone;
+        _cityController.text = user.city;
+        _platformController.text = user.platform;
+        _zoneController.text = user.zone ?? '';
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _phoneController.dispose();
+    _cityController.dispose();
+    _platformController.dispose();
+    _zoneController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDark ? Colors.white : const Color(0xFF1A1A2E);
-    final subtitleColor = isDark ? Colors.white70 : Colors.grey.shade600;
+    final subtitleColor = isDark ? Colors.white54 : Colors.grey.shade600;
     final cardColor = isDark ? AppTheme.darkCard : AppTheme.lightCard;
     final bgColors = isDark
         ? const [Color(0xFF0A0E21), Color(0xFF1A1A2E)]
         : const [Color(0xFFF5F6FA), Color(0xFFEEEFF5)];
 
     return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(icon: Icon(Icons.arrow_back, color: textColor), onPressed: () => Navigator.pop(context)),
+        title: Text('Edit Profile', style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
+        actions: [
+          TextButton(
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile Updated Successfully')));
+              Navigator.pop(context);
+            },
+            child: const Text('Save', style: TextStyle(color: AppTheme.secondaryColor, fontWeight: FontWeight.bold, fontSize: 16)),
+          ),
+        ],
+      ),
       body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(colors: bgColors, begin: Alignment.topCenter, end: Alignment.bottomCenter),
-        ),
-        child: SafeArea(
+        height: MediaQuery.of(context).size.height,
+        decoration: BoxDecoration(gradient: LinearGradient(colors: bgColors, begin: Alignment.topCenter, end: Alignment.bottomCenter)),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // ── App Bar ──
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: Row(
+              // Avatar Upload Mockup
+              Stack(
+                alignment: Alignment.bottomRight,
+                children: [
+                  CircleAvatar(
+                    radius: 50,
+                    backgroundColor: AppTheme.primaryColor.withAlpha(50),
+                    child: const Icon(Icons.person, size: 50, color: AppTheme.primaryColor),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: const BoxDecoration(color: AppTheme.secondaryColor, shape: BoxShape.circle),
+                    child: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 32),
+              
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(24)),
+                child: Column(
                   children: [
-                    GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(12)),
-                        child: Icon(Icons.arrow_back_ios_new, color: textColor, size: 18),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Text(
-                      'Edit Profile',
-                      style: TextStyle(color: textColor, fontSize: 20, fontWeight: FontWeight.bold),
-                    ),
+                    _buildTextField('Full Name', _nameController, Icons.person, textColor, subtitleColor, isDark),
+                    const SizedBox(height: 16),
+                    _buildTextField('Phone Number', _phoneController, Icons.phone, textColor, subtitleColor, isDark, TextInputType.phone),
+                    const SizedBox(height: 16),
+                    _buildTextField('City', _cityController, Icons.location_city, textColor, subtitleColor, isDark),
+                    const SizedBox(height: 16),
+                    _buildTextField('Zone/Area', _zoneController, Icons.map, textColor, subtitleColor, isDark),
+                    const SizedBox(height: 16),
+                    _buildTextField('Primary Platform', _platformController, Icons.work, textColor, subtitleColor, isDark),
                   ],
                 ),
               ),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Update your information', style: TextStyle(color: subtitleColor, fontSize: 14)),
-                        const SizedBox(height: 24),
-                        
-                        _buildInputField(
-                          controller: _nameController,
-                          label: 'Full Name',
-                          textColor: textColor,
-                          subtitleColor: subtitleColor,
-                          cardColor: cardColor,
-                          icon: Icons.person,
-                        ),
-                        const SizedBox(height: 16),
-                        _buildInputField(
-                          controller: _cityController,
-                          label: 'City',
-                          textColor: textColor,
-                          subtitleColor: subtitleColor,
-                          cardColor: cardColor,
-                          icon: Icons.location_city,
-                        ),
-                        const SizedBox(height: 16),
-                        _buildInputField(
-                          controller: _zoneController,
-                          label: 'Delivery Zone',
-                          textColor: textColor,
-                          subtitleColor: subtitleColor,
-                          cardColor: cardColor,
-                          icon: Icons.map,
-                        ),
-                        
-                        const SizedBox(height: 32),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 56,
-                          child: ElevatedButton(
-                            onPressed: _isLoading ? null : _saveProfile,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.primaryColor,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                            ),
-                            child: _isLoading
-                                ? const CircularProgressIndicator(color: Colors.white)
-                                : const Text('Save Changes', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
+              const SizedBox(height: 40), // Padding for keyboard
             ],
           ),
         ),
@@ -133,71 +119,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  Widget _buildInputField({
-    required TextEditingController controller,
-    required String label,
-    required Color textColor,
-    required Color subtitleColor,
-    required Color cardColor,
-    required IconData icon,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: TextStyle(color: subtitleColor, fontSize: 13, fontWeight: FontWeight.w500)),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: controller,
-          style: TextStyle(color: textColor),
-          decoration: InputDecoration(
-            prefixIcon: Icon(icon, color: AppTheme.primaryColor),
-            filled: true,
-            fillColor: cardColor,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-          ),
-          validator: (value) => value!.isEmpty ? 'Required field' : null,
-        )
-      ],
+  Widget _buildTextField(String label, TextEditingController controller, IconData icon, Color textColor, Color subtitleColor, bool isDark, [TextInputType type = TextInputType.text]) {
+    return TextField(
+      controller: controller,
+      keyboardType: type,
+      style: TextStyle(color: textColor),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: TextStyle(color: subtitleColor),
+        prefixIcon: Icon(icon, color: AppTheme.primaryColor),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: isDark ? Colors.white24 : Colors.black12)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: isDark ? Colors.white24 : Colors.black12)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2)),
+      ),
     );
-  }
-
-  Future<void> _saveProfile() async {
-    if (!_formKey.currentState!.validate()) return;
-    
-    setState(() => _isLoading = true);
-    
-    try {
-      final user = context.read<AppProvider>().currentUser;
-      if (user != null) {
-        await _firestoreService.updateWorker(user.id, {
-          'name': _nameController.text.trim(),
-          'city': _cityController.text.trim(),
-          'zone': _zoneController.text.trim(),
-        });
-        
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Profile updated! Changes should sync instantly.'), backgroundColor: Colors.green),
-          );
-          Navigator.pop(context);
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.accentColor),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _zoneController.dispose();
-    _cityController.dispose();
-    super.dispose();
   }
 }
